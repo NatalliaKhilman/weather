@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import type { OpenWeatherCurrent, OpenWeatherForecastItem } from "@/types";
+import type { OpenWeatherCurrent, OpenWeatherForecastItem, HourlyForecastItem } from "@/types";
 
 const ICON_URL = "https://openweathermap.org/img/wn";
 
@@ -23,6 +23,7 @@ function iconSrc(icon: string | undefined, size2x = false): string {
 type WeatherData = {
   current: OpenWeatherCurrent;
   forecast: OpenWeatherForecastItem[] | null;
+  hourly: HourlyForecastItem[] | null;
 };
 
 export function WeatherCard({ isPremium }: { isPremium: boolean }) {
@@ -51,9 +52,11 @@ export function WeatherCard({ isPremium }: { isPremium: boolean }) {
           if (!dailyMap.has(day)) dailyMap.set(day, item);
         });
         const daily = Array.from(dailyMap.values()).slice(0, isPremium ? 7 : 5);
+        const hourlyData: HourlyForecastItem[] = data.hourly ?? [];
         setWeather({
           current: data.current,
           forecast: daily.length ? daily : null,
+          hourly: isPremium && hourlyData.length ? hourlyData : null,
         });
       } catch {
         setError("Ошибка сети");
@@ -144,6 +147,42 @@ export function WeatherCard({ isPremium }: { isPremium: boolean }) {
               <span className="text-sky-600 dark:text-sky-400">Ветер: {weather.current.wind.speed} м/с</span>
               <span className="text-sky-600 dark:text-sky-400">Давление: {weather.current.main.pressure} гПа</span>
             </div>
+            {weather.hourly && weather.hourly.length > 0 && (
+              <div>
+                <p className="mb-2 text-sm font-medium flex items-center gap-1.5">
+                  <span className="inline-block h-2 w-2 rounded-full bg-amber-400" />
+                  Почасовой прогноз (24 ч)
+                </p>
+                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
+                  {weather.hourly.map((h) => {
+                    const hour = new Date(h.dt * 1000).toLocaleTimeString("ru-RU", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    });
+                    return (
+                      <div
+                        key={h.dt}
+                        className="flex flex-col items-center rounded-md border border-amber-200 bg-amber-50/60 dark:border-amber-800 dark:bg-amber-950/30 px-3 py-2 text-center text-xs shrink-0 min-w-[68px]"
+                      >
+                        <p className="font-medium text-amber-700 dark:text-amber-300">{hour}</p>
+                        {h.weather.icon && (
+                          <Image
+                            src={iconSrc(h.weather.icon)}
+                            alt=""
+                            width={28}
+                            height={28}
+                            className="my-0.5"
+                            unoptimized
+                          />
+                        )}
+                        <p className="font-semibold">{Math.round(h.temp)}°</p>
+                        <p className="text-muted-foreground">{h.wind_speed} м/с</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             {weather.forecast && weather.forecast.length > 0 && (
               <div>
                 <p className="mb-2 text-sm font-medium">

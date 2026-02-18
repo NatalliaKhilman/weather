@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import type { OpenWeatherCurrent, OpenWeatherForecast, OpenWeatherForecastItem } from "@/types";
+import type { OpenWeatherCurrent, OpenWeatherForecast, OpenWeatherForecastItem, HourlyForecastItem } from "@/types";
 
 const WEATHERAPI_BASE = "https://api.weatherapi.com/v1";
 const API_KEY = process.env.WEATHERAPI_API_KEY;
@@ -100,7 +100,29 @@ export async function GET(request: NextRequest) {
       city: { name: loc.name ?? "Unknown" },
     };
 
-    return Response.json({ current, forecast });
+    const nowEpoch = Math.floor(Date.now() / 1000);
+    const allHours: HourlyForecastItem[] = [];
+    for (const fd of forecastday) {
+      for (const h of fd.hour ?? []) {
+        if (h.time_epoch >= nowEpoch && allHours.length < 24) {
+          const hCond = h.condition ?? {};
+          allHours.push({
+            dt: h.time_epoch,
+            time: h.time,
+            temp: h.temp_c ?? 0,
+            feels_like: h.feelslike_c ?? 0,
+            humidity: h.humidity ?? 0,
+            wind_speed: Math.round(((h.wind_kph ?? 0) / 3.6) * 10) / 10,
+            weather: {
+              ...toOWCondition(hCond.code ?? 1000, hCond.text ?? "Unknown"),
+              icon: toOWIcon(hCond.icon ?? ""),
+            },
+          });
+        }
+      }
+    }
+
+    return Response.json({ current, forecast, hourly: allHours });
   } catch (e) {
     console.error(e);
     return Response.json(

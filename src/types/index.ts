@@ -35,6 +35,16 @@ export type OpenWeatherForecastItem = {
   dt_txt: string;
 };
 
+export type HourlyForecastItem = {
+  dt: number;
+  time: string;
+  temp: number;
+  feels_like: number;
+  humidity: number;
+  wind_speed: number;
+  weather: { id: number; main: string; description: string; icon: string };
+};
+
 export type OpenWeatherForecast = {
   list: OpenWeatherForecastItem[];
   city: { name: string };
