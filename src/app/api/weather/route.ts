@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import type { OpenWeatherCurrent, OpenWeatherForecast, OpenWeatherForecastItem, HourlyForecastItem } from "@/types";
+import type { OpenWeatherCurrent, OpenWeatherForecast, OpenWeatherForecastItem, HourlyForecastItem, WeatherAlert } from "@/types";
 
 const WEATHERAPI_BASE = "https://api.weatherapi.com/v1";
 const API_KEY = process.env.WEATHERAPI_API_KEY;
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const forecastUrl = `${WEATHERAPI_BASE}/forecast.json?key=${API_KEY}&q=${q}&days=7&lang=ru`;
+  const forecastUrl = `${WEATHERAPI_BASE}/forecast.json?key=${API_KEY}&q=${q}&days=7&lang=ru&alerts=yes`;
 
   try {
     const res = await fetch(forecastUrl);
@@ -122,7 +122,17 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return Response.json({ current, forecast, hourly: allHours });
+    const rawAlerts = data.alerts?.alert ?? [];
+    const alerts: WeatherAlert[] = rawAlerts.map((a: Record<string, string>) => ({
+      headline: a.headline ?? a.event ?? "Предупреждение",
+      severity: a.severity ?? "Unknown",
+      event: a.event ?? "",
+      desc: a.desc ?? "",
+      effective: a.effective ?? "",
+      expires: a.expires ?? "",
+    }));
+
+    return Response.json({ current, forecast, hourly: allHours, alerts });
   } catch (e) {
     console.error(e);
     return Response.json(

@@ -49,3 +49,12 @@ export type OpenWeatherForecast = {
   list: OpenWeatherForecastItem[];
   city: { name: string };
 };
+
+export type WeatherAlert = {
+  headline: string;
+  severity: string;
+  event: string;
+  desc: string;
+  effective: string;
+  expires: string;
+};
