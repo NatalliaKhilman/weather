@@ -1,0 +1,111 @@
+import { NextRequest } from "next/server";
+import type { OpenWeatherCurrent, OpenWeatherForecast, OpenWeatherForecastItem } from "@/types";
+
+const WEATHERAPI_BASE = "https://api.weatherapi.com/v1";
+const API_KEY = process.env.WEATHERAPI_API_KEY;
+
+function toOWIcon(icon: string): string {
+  if (!icon) return "01d";
+  if (icon.startsWith("http")) return icon;
+  return icon.startsWith("//") ? `https:${icon}` : icon;
+}
+
+function toOWCondition(code: number, text: string) {
+  return {
+    id: code,
+    main: text.split(/[\s,]/)[0] || "Unknown",
+    description: text,
+    icon: "",
+  };
+}
+
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const city = searchParams.get("city");
+  const lat = searchParams.get("lat");
+  const lon = searchParams.get("lon");
+
+  if (!API_KEY) {
+    return Response.json(
+      { error: "WeatherAPI key not configured" },
+      { status: 500 }
+    );
+  }
+
+  let q: string;
+  if (city && city.trim()) {
+    q = encodeURIComponent(city.trim());
+  } else if (lat != null && lon != null) {
+    q = `${lat},${lon}`;
+  } else {
+    return Response.json(
+      { error: "Provide city or lat/lon" },
+      { status: 400 }
+    );
+  }
+
+  const forecastUrl = `${WEATHERAPI_BASE}/forecast.json?key=${API_KEY}&q=${q}&days=7&lang=ru`;
+
+  try {
+    const res = await fetch(forecastUrl);
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return Response.json(
+        { error: err?.error?.message || "Weather fetch failed" },
+        { status: res.status }
+      );
+    }
+
+    const data = await res.json();
+    const loc = data.location ?? {};
+    const cur = data.current ?? {};
+    const cond = cur.condition ?? {};
+
+    const current: OpenWeatherCurrent = {
+      main: {
+        temp: cur.temp_c ?? 0,
+        feels_like: cur.feelslike_c ?? cur.temp_c ?? 0,
+        humidity: cur.humidity ?? 0,
+        pressure: cur.pressure_mb ?? 0,
+      },
+      wind: { speed: (cur.wind_kph ?? 0) / 3.6 },
+      weather: [
+        {
+          ...toOWCondition(cond.code ?? 1000, cond.text ?? "Unknown"),
+          icon: toOWIcon(cond.icon ?? ""),
+        },
+      ],
+      name: loc.name ?? "Unknown",
+    };
+
+    const forecastday = data.forecast?.forecastday ?? [];
+    const list: OpenWeatherForecastItem[] = forecastday.map((fd: { date: string; date_epoch: number; day: { avgtemp_c: number; condition: { code: number; text: string; icon: string } } }) => ({
+      dt: fd.date_epoch ?? new Date(fd.date).getTime() / 1000,
+      main: { temp: fd.day?.avgtemp_c ?? 0 },
+      weather: [
+        {
+          ...toOWCondition(
+            fd.day?.condition?.code ?? 1000,
+            fd.day?.condition?.text ?? "Unknown"
+          ),
+          icon: toOWIcon(fd.day?.condition?.icon ?? ""),
+        },
+      ],
+      dt_txt: `${fd.date} 12:00:00`,
+    }));
+
+    const forecast: OpenWeatherForecast = {
+      list,
+      city: { name: loc.name ?? "Unknown" },
+    };
+
+    return Response.json({ current, forecast });
+  } catch (e) {
+    console.error(e);
+    return Response.json(
+      { error: "Weather service error" },
+      { status: 500 }
+    );
+  }
+}
