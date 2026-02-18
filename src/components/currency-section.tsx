@@ -34,14 +34,26 @@ export function CurrencySection() {
   const { toast } = useToast();
 
   useEffect(() => {
-    fetch("/api/currency")
-      .then((res) => res.json())
+    const NBRB_URL = "https://www.nbrb.by/api/exrates/rates?periodicity=0";
+
+    fetch(NBRB_URL)
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
       .then((data) => {
-        if (data.error) throw new Error(data.error);
         setRates(Array.isArray(data) ? data : []);
       })
       .catch(() => {
-        toast({ title: "Ошибка", description: "Не удалось загрузить курсы валют", variant: "destructive" });
+        fetch("/api/currency")
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.error) throw new Error(data.error);
+            setRates(Array.isArray(data) ? data : []);
+          })
+          .catch(() => {
+            toast({ title: "Ошибка", description: "Не удалось загрузить курсы валют", variant: "destructive" });
+          });
       })
       .finally(() => setLoading(false));
   }, [toast]);
