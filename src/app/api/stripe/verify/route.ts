@@ -1,13 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import Stripe from "stripe";
 import { getSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
-
-function getStripe() {
-  const key = process.env.STRIPE_SECRET_KEY;
-  if (!key) throw new Error("Stripe is not configured");
-  return new Stripe(key);
-}
+import { getStripe } from "@/lib/stripe";
 
 export async function POST(request: NextRequest) {
   const session = await getSession();

@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  serverExternalPackages: ["@supabase/supabase-js"],
+  experimental: {
+    serverComponentsExternalPackages: ["@supabase/supabase-js", "stripe"],
+  },
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "openweathermap.org", pathname: "/img/wn/**" },

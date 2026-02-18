@@ -16,7 +16,7 @@ export function DashboardContent() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold bg-gradient-to-r from-sky-600 to-emerald-600 bg-clip-text text-transparent dark:from-sky-400 dark:to-emerald-400">Панель</h1>
+        <h1 className="text-2xl font-bold bg-gradient-to-r from-sky-600 to-emerald-600 bg-clip-text text-transparent dark:from-sky-400 dark:to-emerald-400">Дашборд</h1>
         {session?.user?.email && (
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">{session.user.email}</span>

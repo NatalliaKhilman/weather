@@ -1,52 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import Stripe from "stripe";
 import { getSession } from "@/lib/session";
-import path from "path";
-import fs from "fs";
+import { getStripe } from "@/lib/stripe";
 
-// Fallback Price IDs (same Stripe account as STRIPE_SECRET_KEY). Override via .env.local.
 const DEFAULT_STRIPE_MONTHLY_PRICE_ID = "price_1T2DgMRzy0O9kRFUAFVeV2WY";
 const DEFAULT_STRIPE_ANNUAL_PRICE_ID = "price_1T2DgNRzy0O9kRFUPGUpBchN";
-
-type PriceIds = {
-  monthly?: string;
-  annual?: string;
-  addonFamily?: string;
-  addonApi?: string;
-  addonCities?: string;
-};
-
-function getStripePriceIds(): PriceIds {
-  const out: PriceIds = {};
-  try {
-    const envPath = path.join(process.cwd(), ".env.local");
-    if (!fs.existsSync(envPath)) return out;
-    let content = fs.readFileSync(envPath, "utf8");
-    content = content.replace(/^\uFEFF/, ""); // BOM
-    for (const raw of content.split(/\r?\n/)) {
-      const line = raw.trim();
-      if (!line || line.startsWith("#")) continue;
-      const eq = line.indexOf("=");
-      if (eq <= 0) continue;
-      const key = line.slice(0, eq).trim();
-      const value = line.slice(eq + 1).trim().replace(/^["']|["']$/g, "");
-      if (key === "STRIPE_MONTHLY_PRICE_ID" && value) out.monthly = value;
-      if (key === "STRIPE_ANNUAL_PRICE_ID" && value) out.annual = value;
-      if (key === "STRIPE_ADDON_FAMILY_PRICE_ID" && value) out.addonFamily = value;
-      if (key === "STRIPE_ADDON_API_PRICE_ID" && value) out.addonApi = value;
-      if (key === "STRIPE_ADDON_CITIES_PRICE_ID" && value) out.addonCities = value;
-    }
-  } catch {
-    // ignore
-  }
-  return out;
-}
-
-function getStripe() {
-  const key = process.env.STRIPE_SECRET_KEY;
-  if (!key) throw new Error("Stripe is not configured");
-  return new Stripe(key);
-}
 
 export async function POST(request: NextRequest) {
   const session = await getSession();
@@ -77,29 +34,19 @@ export async function POST(request: NextRequest) {
         : plan === "api"
           ? "STRIPE_ADDON_API_PRICE_ID"
           : "STRIPE_ADDON_CITIES_PRICE_ID";
-    const fromFile = getStripePriceIds();
-    priceId =
-      (process.env[envKey] ?? "").trim() ||
-      (plan === "family" ? fromFile.addonFamily : plan === "api" ? fromFile.addonApi : fromFile.addonCities);
+    priceId = (process.env[envKey] ?? "").trim() || undefined;
     if (!priceId) {
       return NextResponse.json(
-        {
-          error: `Add-on "${plan}" is not configured. Create a Stripe product and set ${envKey} in .env.local. See docs/STRIPE_SETUP.md for add-ons.`,
-        },
+        { error: `Add-on "${plan}" is not configured. Set ${envKey} in environment variables.` },
         { status: 503 }
       );
     }
   } else {
-    const fromEnv =
-      planType === "annual"
+    priceId =
+      (planType === "annual"
         ? (process.env.STRIPE_ANNUAL_PRICE_ID ?? "").trim()
-        : (process.env.STRIPE_MONTHLY_PRICE_ID ?? "").trim();
-    const fromFile = getStripePriceIds();
-    const fallback =
-      planType === "annual"
-        ? DEFAULT_STRIPE_ANNUAL_PRICE_ID
-        : DEFAULT_STRIPE_MONTHLY_PRICE_ID;
-    priceId = fromEnv || (planType === "annual" ? fromFile.annual : fromFile.monthly) || fallback;
+        : (process.env.STRIPE_MONTHLY_PRICE_ID ?? "").trim()) ||
+      (planType === "annual" ? DEFAULT_STRIPE_ANNUAL_PRICE_ID : DEFAULT_STRIPE_MONTHLY_PRICE_ID);
   }
 
   if (!priceId) {
@@ -111,24 +58,27 @@ export async function POST(request: NextRequest) {
 
   try {
     const stripe = getStripe();
+    const origin = request.headers.get("origin") || process.env.NEXTAUTH_URL || "https://weather-gamma-orpin.vercel.app";
+    const userId = (session as any).user?.id || "unknown";
     const checkoutSession = await stripe.checkout.sessions.create({
       mode: "subscription",
       payment_method_types: ["card"],
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${process.env.NEXTAUTH_URL}/dashboard?success=true&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.NEXTAUTH_URL}/pricing`,
+      success_url: `${origin}/dashboard?success=true&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}/pricing`,
       customer_email: session.user.email!,
-      client_reference_id: (session as any).user.id,
+      client_reference_id: userId,
       subscription_data: {
-        metadata: { userId: (session as any).user.id, planType: String(planType) },
+        metadata: { userId, planType: String(planType) },
       },
     });
 
     return NextResponse.json({ url: checkoutSession.url });
-  } catch (e) {
-    console.error(e);
+  } catch (e: any) {
+    console.error("Stripe checkout error:", e);
+    const message = e?.message || "Checkout creation failed";
     return NextResponse.json(
-      { error: "Checkout creation failed" },
+      { error: message },
       { status: 500 }
     );
   }

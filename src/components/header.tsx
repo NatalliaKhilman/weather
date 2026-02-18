@@ -31,7 +31,7 @@ export function Header() {
               <Button variant="ghost" size="sm" asChild>
                 <Link href="/dashboard" className="text-sky-600 dark:text-sky-400 hover:text-sky-700 dark:hover:text-sky-300">
                   <LayoutDashboard className="mr-2 h-4 w-4 text-sky-500" />
-                  Панель
+                  Дашборд
                 </Link>
               </Button>
               {isPremiumUser && (
