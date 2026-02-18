@@ -38,6 +38,7 @@ export default function AdminUserDetailPage() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [subStatus, setSubStatus] = useState("");
+  const [role, setRole] = useState("user");
   const [blocked, setBlocked] = useState(false);
   const { toast } = useToast();
 
@@ -48,6 +49,7 @@ export default function AdminUserDetailPage() {
         if (json.error) throw new Error(json.error);
         setUser(json);
         setSubStatus(json.subscription_status);
+        setRole(json.role);
         setBlocked(json.is_blocked);
       })
       .catch(() => toast({ title: "Ошибка", description: "Пользователь не найден", variant: "destructive" }))
@@ -62,6 +64,7 @@ export default function AdminUserDetailPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           subscription_status: subStatus,
+          role,
           is_blocked: blocked,
         }),
       });
@@ -152,6 +155,18 @@ export default function AdminUserDetailPage() {
                   : "—"}
               </p>
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Роль</Label>
+            <Select value={role} onValueChange={setRole}>
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="user">Пользователь</SelectItem>
+                <SelectItem value="admin">Админ</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-2">
             <Label>Заблокировать (запретить доступ)</Label>

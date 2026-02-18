@@ -36,17 +36,23 @@ export const authOptions = {
   callbacks: {
     async signIn({ user }: { user: { id?: string; email?: string | null } }) {
       if (!user?.email) return false;
+      const isAdmin = ADMIN_EMAILS.includes(user.email.toLowerCase());
       const { data: existing } = await supabase
         .from("user_profiles")
-        .select("id")
+        .select("id, role")
         .eq("email", user.email)
         .single();
       if (!existing) {
         await supabase.from("user_profiles").insert({
           id: user.id!,
           email: user.email,
-          role: ADMIN_EMAILS.includes(user.email!.toLowerCase()) ? "admin" : "user",
+          role: isAdmin ? "admin" : "user",
         });
+      } else if (isAdmin && existing.role !== "admin") {
+        await supabase
+          .from("user_profiles")
+          .update({ role: "admin" })
+          .eq("id", existing.id);
       }
       return true;
     },

@@ -124,8 +124,12 @@ export default function AdminUsersPage() {
                       <TableCell className="font-medium">{u.email}</TableCell>
                       <TableCell><Badge variant={u.role === "admin" ? "default" : "secondary"}>{u.role === "admin" ? "Админ" : "Пользователь"}</Badge></TableCell>
                       <TableCell>
-                        <Badge variant={u.subscription_status === "premium" ? "success" : "secondary"}>
-                          {SUBSCRIPTION_LABELS[u.subscription_status as SubscriptionStatus] ?? u.subscription_status}
+                        <Badge variant={u.subscription_status === "premium" || u.role === "admin" ? "success" : "secondary"}>
+                          {u.subscription_status === "premium"
+                            ? "Премиум"
+                            : u.role === "admin"
+                              ? "Премиум (Админ)"
+                              : SUBSCRIPTION_LABELS[u.subscription_status as SubscriptionStatus] ?? u.subscription_status}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">

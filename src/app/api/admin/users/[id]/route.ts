@@ -51,6 +51,9 @@ export async function PATCH(
     }
   }
   if (typeof body.is_blocked === "boolean") updates.is_blocked = body.is_blocked;
+  if (typeof body.role === "string" && ["user", "admin"].includes(body.role)) {
+    updates.role = body.role;
+  }
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: "No valid updates" }, { status: 400 });
